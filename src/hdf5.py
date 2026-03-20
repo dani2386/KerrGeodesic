@@ -7,22 +7,25 @@ class HDF5File:
     def __init__(self, file_name):
         self.file_name = file_name
         self._file = None
+        self._count = 0
 
         if not os.path.exists(self.file_name):
             with h5py.File(self.file_name, 'a'): pass
 
     def __enter__(self):
-        self._file = h5py.File(self.file_name, 'a')
+        if self._file is None: h5py.File(self.file_name, 'a')
+        self._count += 1
         return self
 
     def __exit__(self, *args):
-        if self._file:
+        self._count -= 1
+        if self._file and self._count == 0:
             self._file.close()
             self._file = None
 
     @contextmanager
     def _get_file(self):
-        if self._file is not None:
+        if self._file:
             yield self._file
         else:
             file = h5py.File(self.file_name, 'a')
@@ -60,7 +63,7 @@ class HDF5File:
                 file[path].attrs[key] = value
 
     def load_metadata(self, path, keys):
-        if isinstance(keys, str): keys = [keys]
+        if isinstance(keys, str): keys = (keys,)
         with self._get_file() as file:
             return file[path].attrs[keys[0]] if len(keys) == 1 else tuple(file[path].attrs[key] for key in keys)
 

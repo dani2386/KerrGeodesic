@@ -9,7 +9,7 @@ class KerrSolver(ODESolver):
         self.E = 0
         self.J = 0
 
-        super().__init__(dir_name, f=None)
+        super().__init__(dir_name, ('tau', 'phi', 'r', 'pr'), self._geodesic_eq)
 
     def _factors(self, r):
         delta = r**2 + self.a**2 - 2 * r
@@ -27,36 +27,38 @@ class KerrSolver(ODESolver):
 
         return np.array([Q, w, dr_dt, dpr_dt])
 
-    def solve(self, run_id, params, depth):
-        t, dt, r, self.E, self.J = params
+    def solve(self, run_id, params, depth, **kwargs):
+        t_max, dt, r, self.E, self.J = params
         delta, Q, w = self._factors(r)
 
         pr = -(np.sqrt(np.abs(r**2 / (delta * Q**2) * (1 - 2 / r - Q**2 - w**2 * (r**2 + 2 * self.a**2 / r + self.a**2) + 4 * w * self.a / r))))
 
-        self.f = self._geodesic_eq
-
-        return super().solve(run_id, (t, dt, np.array([0, 0, r, pr])), depth)
-
-    def plot(self, run_id, x_axis, y_axis, depth, ax=None, **kwargs):
-        opts = {'t': None, 'tau': 0, 'phi': 1, 'r': 2, 'pr': 3}
-
-        super().plot(run_id, opts[x_axis], opts[y_axis], depth, ax, **kwargs)
+        return super().solve(run_id, t_max, dt, np.array([0, 0, r, pr]), depth, **kwargs)
 
     def plot_trajectory(self, run_id, depth, ax=None, **kwargs):
-        states  = f'{run_id}/states'
-
         if ax is None: fig, ax = plt.subplots()
+        line = None
+
+        theta = np.linspace(0, 2 * np.pi, 100)
+        r_bh = 1 + np.sqrt(1 - self.a**2)
+
+        ax.plot(r_bh * np.cos(theta), r_bh * np.sin(theta), color='black')
 
         with self._file as file:
-            n_max = file.load_metadata(run_id, 'n_max')
+            t_max, dt = file.load_metadata(run_id, ('t_max', 'dt'))
+            n_max = int(t_max / dt)
 
             for n in range(0, n_max, depth):
-                phi = file.load(states, slice(n, min(n + depth, n_max + 1)))[:, 1]
-                r = file.load(states, slice(n, min(n + depth, n_max + 1)))[:, 2]
+                buf_len = min(depth, n_max - n)
 
+                phi = file.load(f'{run_id}/states/base', (slice(n, n + buf_len + 1), 1))
+                r = file.load(f'{run_id}/states/base', (slice(n, n + buf_len + 1), 2))
                 x = r * np.cos(phi)
                 y = r * np.sin(phi)
 
-                ax.plot(x, y, **kwargs)
+                if not line:
+                    line, = ax.plot(x, y, **kwargs)
+                else:
+                    ax.plot(x, y, color=line.get_color(), linestyle=line.get_linestyle(), label=None)
 
         return ax
