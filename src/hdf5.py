@@ -46,7 +46,7 @@ class HDF5File:
     def create_dataset(self, path, shape):
         with self._get_file()as file:
             if path in file: del file[path]
-            file.create_dataset(path, shape=shape, maxshape=(None,) * len(shape), compression='gzip', dtype='f4')
+            file.create_dataset(path, shape=shape, maxshape=(None,) * len(shape), compression='gzip', dtype='f8')
 
     def resize(self, path, shape):
         with self._get_file() as file:

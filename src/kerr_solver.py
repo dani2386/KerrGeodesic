@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
 from src.ode_solver import ODESolver
 
 
@@ -36,23 +37,24 @@ class KerrSolver(ODESolver):
         return super().solve(run_id, t_max, dt, np.array([0, 0, r, pr]), depth, **kwargs)
 
     def plot_trajectory(self, run_id, depth, ax=None, **kwargs):
-        if ax is None: fig, ax = plt.subplots()
-        line = None
+        if ax is None: fig, ax = plt.subplots(figsize=(6, 6))
+        ax.set_xlim(-10, 10)
+        ax.set_ylim(-10, 10)
+        ax.grid(True)
 
-        theta = np.linspace(0, 2 * np.pi, 100)
-        r_bh = 1 + np.sqrt(1 - self.a**2)
-
-        ax.plot(r_bh * np.cos(theta), r_bh * np.sin(theta), color='black')
+        ax.add_patch(Circle((0, 0), 1 + np.sqrt(1 - self.a**2), color='black', linestyle='--', fill=False))
 
         with self._file as file:
             t_max, dt = file.load_metadata(run_id, ('t_max', 'dt'))
             n_max = int(t_max / dt)
+            line = None
 
-            for n in range(0, n_max, depth):
-                buf_len = min(depth, n_max - n)
+            for n in range(0, n_max + 1, depth):
+                buf_len = min(depth, n_max - n + 1)
 
-                phi = file.load(f'{run_id}/states/base', (slice(n, n + buf_len + 1), 1))
-                r = file.load(f'{run_id}/states/base', (slice(n, n + buf_len + 1), 2))
+                phi = file.load(f'{run_id}/states/base', (slice(n, n + buf_len), 1))
+                r = file.load(f'{run_id}/states/base', (slice(n, n + buf_len), 2))
+
                 x = r * np.cos(phi)
                 y = r * np.sin(phi)
 
