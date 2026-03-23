@@ -170,7 +170,7 @@ class KerrSolver(ODESolver):
 
     def solve(self, run_id, depth, params, **kwargs):
         t_max, dt, r, E, J, r_max = params
-        delta, Q, w = self._factors(r)
+        delta, Q, w = self._factors(r, E, J)
 
         stop_cond = lambda t, data: (data[2] <= self.r_plus * 1.01) or (data[2] >= r_max)
 
