@@ -2,10 +2,10 @@ import matplotlib.pyplot as plt
 from src.kerr_solver import KerrSolver
 
 
-a = 0.1
+a = 0
 
 run_id = 'test_run'
-params = (1.5, 0.0001, 6, 0.1, 6)  # (t_max, dt, r, E, J)
+params = (50, 0.01, 6, 0.1, 2.5, 10)  # (t_max, dt, r, E, J, r_max)
 
 depth = 1000
 
@@ -15,12 +15,12 @@ def main():
 
     print('Solving...')
 
-    solver.solve(run_id, params, depth, conv='self')
+    solver.solve(run_id, depth, params, conv='self')
 
     print('Plotting...')
 
-    solver.plot(run_id, 'phi', depth)
-    solver.plot(run_id, 'phi', depth, conv='self')
+    solver.plot(run_id, depth, 'phi')
+    solver.plot(run_id, depth, 'phi', conv='self')
     solver.plot_trajectory(run_id, depth)
 
     plt.show()
