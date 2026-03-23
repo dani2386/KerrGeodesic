@@ -1,17 +1,17 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
 from src.ode_solver import ODESolver
 
 
 class KerrSolver(ODESolver):
     def __init__(self, dir_name, a):
         self.a = a
-    #    self.E = 0
-    #    self.J = 0
+        self.r_plus = 1 + np.sqrt(1 - self.a**2)
         self.m = 1e-5
         self.M = 1
 
-        super().__init__(dir_name, f=None)
+        super().__init__(dir_name, ('tau', 'phi', 'r', 'pr'), self._geodesic_eq)
 
     def _d3I_dt3(self, r, phi, dr, dphi, d2r, d2phi, d3r, d3phi):
 
@@ -167,50 +167,42 @@ class KerrSolver(ODESolver):
     def _pr(self, r, E, J):
         delta, Q, w = self._factors(r, E, J)
         return -(np.sqrt(np.abs(r**2 / (delta * Q**2) * (1 - 2 / r - Q**2 - w**2 * (r**2 + 2 * self.a**2 / r + self.a**2) + 4 * w * self.a / r))))
-   
-    def solve(self, run_id, params, depth):
-        t, dt, r, E, J = params
-        delta, Q, w = self._factors(r, E, J)
+
+    def solve(self, run_id, depth, params, **kwargs):
+        t_max, dt, r, E, J, r_max = params
+        delta, Q, w = self._factors(r)
+
+        stop_cond = lambda t, data: (data[2] <= self.r_plus * 1.01) or (data[2] >= r_max)
 
         pr = self._pr(r, E, J)
 
-        self.f = self._geodesic_eq
-
-        return super().solve(run_id, (t, dt, np.array([0, 0, r, pr, E, J])), depth)
-
-    def plot(self, run_id, x_axis, y_axis, depth, ax=None, **kwargs):
-        opts = {'t': None, 'tau': 0, 'phi': 1, 'r': 2, 'pr': 3, 'E': 4, 'J': 5}
-
-        super().plot(run_id, opts[x_axis], opts[y_axis], depth, ax, **kwargs)
+        return super().solve(run_id, depth, t_max, dt, np.array([0, 0, r, pr, E, J]), stop_cond, **kwargs)
 
     def plot_trajectory(self, run_id, depth, ax=None, **kwargs):
-        states  = f'{run_id}/states'
-
         if ax is None: fig, ax = plt.subplots()
+        ax.grid(True)
+
+        ax.add_patch(Circle((0, 0), 1 + np.sqrt(1 - self.a**2), color='black', linestyle='--', fill=False))
+
+        data_path = f'{run_id}/data/v1'
 
         with self._file as file:
-            n_max = file.load_metadata(run_id, 'n_max')
+            t_max, dt = file.load_metadata(run_id, ('t_max', 'dt'))
+            n_max = int(t_max / dt)
+            line = None
 
-            for n in range(0, n_max, depth):
-                phi = file.load(states, slice(n, min(n + depth, n_max + 1)))[:, 1]
-                r = file.load(states, slice(n, min(n + depth, n_max + 1)))[:, 2]
+            for n in range(0, n_max + 1, depth):
+                buf_len = min(depth, n_max - n + 1)
+
+                phi = file.load(data_path, (slice(n, n + buf_len), 1))
+                r = file.load(data_path, (slice(n, n + buf_len), 2))
 
                 x = r * np.cos(phi)
                 y = r * np.sin(phi)
 
-                ax.set_xlim(-10, 10)
-                ax.set_ylim(-10, 10)
-                ax.plot(x, y, **kwargs)
-
-        # --- Event horizon ---
-        r_plus = self.M + np.sqrt(self.M**2 - self.a**2)
-
-        theta = np.linspace(0, 2*np.pi, 500)
-        x_h = r_plus * np.cos(theta)
-        y_h = r_plus * np.sin(theta)
-
-        ax.plot(x_h, y_h, 'k--', label='Event Horizon')
-        ax.fill(x_h, y_h, color='black', alpha=0.3)
-
+                if not line:
+                    line, = ax.plot(x, y, **kwargs)
+                else:
+                    ax.plot(x, y, color=line.get_color(), linestyle=line.get_linestyle(), label=None)
 
         return ax
