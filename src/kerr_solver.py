@@ -13,7 +13,7 @@ class KerrSolver(ODESolver):
 
         super().__init__(dir_name, f=None)
 
-    def _flux(self, r, phi, dr, dphi, d2r, d2phi, d3r, d3phi):
+    def _d3I_dt3(self, r, phi, dr, dphi, d2r, d2phi, d3r, d3phi):
 
         # --- coordinates ---
         c = np.cos(phi)
@@ -80,11 +80,46 @@ class KerrSolver(ODESolver):
             d3x * y + 3 * d2x * dy + 3 * dx * d2y + x * d3y
         )
 
-        # --- energy flux ---
-        flux = (1/5) * (d3Ixx**2 + d3Iyy**2 + 2 * d3Ixy**2)
+        
 
-        return -flux  # negative: energy is lost
-    
+        return d3Ixx, d3Iyy, d3Ixy
+    def _d2I_dt2(self, r, phi, dr, dphi, d2r, d2phi):
+        # --- coordinates ---
+        c = np.cos(phi)
+        s = np.sin(phi)
+
+        x = r * c
+        y = r * s
+
+        # --- first derivatives ---
+        dx = dr * c - r * s * dphi
+        dy = dr * s + r * c * dphi
+
+        # --- second derivatives ---
+        d2x = (
+            d2r * c
+            - 2 * dr * s * dphi
+            - r * c * dphi**2
+            - r * s * d2phi
+        )
+
+        d2y = (
+            d2r * s
+            + 2 * dr * c * dphi
+            - r * s * dphi**2
+            + r * c * d2phi
+        )
+
+        # Ixx = m (x^2 - r^2/3)
+        d2Ixx = self.m * (2 * (dx * dx + x * d2x) - (2/3) * (dr * dr + r * d2r))
+
+        # Iyy = m (y^2 - r^2/3)
+        d2Iyy = self.m * (2 * (dy * dy + y * d2y) - (2/3) * (dr * dr + r * d2r))
+
+        # Ixy = m (x y)
+        d2Ixy = self.m * (d2x * y +2 * dx * dy + x * d2y)
+
+        return d2Ixx, d2Iyy, d2Ixy
     def _factors(self, r,E,J):
         delta = r**2 + self.a**2 - 2 * r
         Q = delta / (E * (r**2 + 2 * self.a**2 / r + self.a**2) - 2 * self.a * J / r)
@@ -116,8 +151,17 @@ class KerrSolver(ODESolver):
         d3r_dt3 = self.d3r_dt3(r, pr, E, J, dr_dt, dpr_dt, d2r_dt2)  # Placeholder for third derivative
         d3phi_dt3 = self.d3phi_dt3(r, E, J, dr_dt, d2r_dt2)  # Placeholder for third derivative
         
-        dE_dt = self._flux(r, phi, dr_dt, w, d2r_dt2, d2phi_dt2, d3r_dt3, d3phi_dt3)  # -(self.m **2)*(32/5)*(w**6)*r**4
-        dJ_dt =  0 # Incorrect
+        # Inertial quadrupole moment tensor third derivatives
+        d3Ixx, d3Iyy, d3Ixy = self._d3I_dt3(r, phi, dr_dt, w, d2r_dt2, d2phi_dt2, d3r_dt3, d3phi_dt3)
+        # --- energy flux ---
+        flux = (1/5) * (d3Ixx**2 + d3Iyy**2 + 2 * d3Ixy**2)
+        dE_dt =  -flux # -(self.m **2)*(32/5)*(w**6)*r**4
+        
+        # Inertial quadrupole moment tensor second derivatives
+        d2Ixx, d2Iyy, d2Ixy = self._d2I_dt2(r, phi, dr_dt, w, d2r_dt2, d2phi_dt2)
+        # --- angular momentum flux ---
+        dJ_dt = -(2/5) * ((d3Ixy * (d2Iyy - d2Ixx) + d2Ixy * (d3Ixx - d3Iyy))) 
+        
         return np.array([Q, w, dr_dt, dpr_dt, dE_dt, dJ_dt])
 
     def _pr(self, r, E, J):
