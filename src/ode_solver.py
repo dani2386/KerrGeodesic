@@ -107,7 +107,7 @@ class ODESolver:
 
                 t = np.arange(n, n + buf_len) * dt
                 data = [file.load(data_path, (slice(n, n + buf_len), idx))] if not conv else \
-                        file.load(conv_path, (slice(None), slice(n, n + buf_len), idx))
+                        file.load(conv_path, (slice(None), slice(n, n + buf_len), idx)) * [[1], [16]]
 
                 if line is None:
                     line = ax.plot(t, np.transpose(data), **kwargs)

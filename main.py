@@ -5,7 +5,7 @@ from src.kerr_solver import KerrSolver
 a = 0
 
 run_id = 'test_run'
-params = (50, 0.01, 6, 0.1, 2.5, 10)  # (t_max, dt, r, E, J, r_max)
+params = (3, 0.01, 6, 0.1, 4, 10)  # (t_max, dt, r, E, J, r_max)
 
 depth = 1000
 
