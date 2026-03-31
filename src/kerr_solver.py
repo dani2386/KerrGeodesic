@@ -11,8 +11,11 @@ class KerrSolver(ODESolver):
         self.E = 0
         self.J = 0
         self.m = 1e-5
+        self.r_obs = 1000
+        self.h = []  # Placeholder for GW polarizations (h_plus, h_cross)
+        self.t_gw = []
 
-        super().__init__(dir_name, ('tau', 'phi', 'r', 'pr'), self._geodesic_eq)
+        super().__init__(dir_name, ('tau', 'phi', 'r', 'pr'), self._geodesic_eq_gw)
 
     def _factors(self, r, E, J):
         delta = r**2 + self.a**2 - 2 * r
@@ -154,6 +157,12 @@ class KerrSolver(ODESolver):
         # --- angular momentum flux ---
         dJ_dt = -(2 / 5) * ((d3Ixy * (d2Iyy - d2Ixx) + d2Ixy * (d3Ixx - d3Iyy)))
 
+        # --- GW polarizations ---
+        h_plus = (d2Ixx - d2Iyy) / self.r_obs
+        h_cross = (2 * d2Ixy) / self.r_obs
+        self.h.append([h_plus, h_cross])
+        self.t_gw.append(t)
+
         return np.array([Q, w, dr_dt, dpr_dt, dE_dt, dJ_dt])
 
     def _geodesic_eq(self, t, state):
@@ -206,16 +215,16 @@ class KerrSolver(ODESolver):
         return r, E, J
 
     def solve(self, run_id, depth, params, **kwargs):
-        #t_max, dt, r, E, J, r_max = params
-        t_max, dt, r, self.E, self.J, r_max = params
-        #delta, A, B, Q, w = self._factors(r, E, J)
-        delta, A, B, Q, w = self._factors(r, self.E, self.J)
+        t_max, dt, r, E, J, r_max = params
+        #t_max, dt, r, self.E, self.J, r_max = params
+        delta, A, B, Q, w = self._factors(r, E, J)
+        #delta, A, B, Q, w = self._factors(r, self.E, self.J)
         pr = -(np.sqrt(np.abs(r**2 / (delta * Q**2) * (1 - 2 / r - Q**2 - w**2 * B + 4 * w * self.a / r))))
 
         stop_cond = lambda t, data: (data[2] <= self.r_plus * 1.01) or (data[2] >= r_max)
 
-        #return super().solve(run_id, depth, t_max, dt, np.array([0, 0, r, pr, E, J]), stop_cond, **kwargs)
-        return super().solve(run_id, depth, t_max, dt, np.array([0, 0, r, pr]), stop_cond, **kwargs)
+        return super().solve(run_id, depth, t_max, dt, np.array([0, 0, r, pr, E, J]), stop_cond, **kwargs)
+        #return super().solve(run_id, depth, t_max, dt, np.array([0, 0, r, pr]), stop_cond, **kwargs)
 
     def plot_trajectory(self, run_id, depth, ax=None, **kwargs):
         if ax is None: fig, ax = plt.subplots()
