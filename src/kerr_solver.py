@@ -15,7 +15,8 @@ class KerrSolver(ODESolver):
         self.h = []  # Placeholder for GW polarizations (h_plus, h_cross)
         self.t_gw = []
 
-        super().__init__(dir_name, ('tau', 'phi', 'r', 'pr'), self._geodesic_eq_gw)
+        super().__init__(dir_name, ('tau', 'phi', 'r', 'pr'), self._geodesic_eq)
+        #super().__init__(dir_name, ('tau', 'phi', 'r', 'pr', 'E', 'J'), self._geodesic_eq_gw)
 
     def _factors(self, r, E, J):
         delta = r**2 + self.a**2 - 2 * r
