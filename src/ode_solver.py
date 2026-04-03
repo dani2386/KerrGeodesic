@@ -86,13 +86,7 @@ class ODESolver:
 
                 file.save(conv_path, (slice(None), slice(n, n + buf_len)), np.abs(err))
 
-    def plot(self, run_id, depth, label, ax=None, **kwargs):
-        if ax is None: fig, ax = plt.subplots()
-        ax.grid(True)
-
-        conv = kwargs.pop('conv', None)
-        if conv: ax.set_yscale('log')
-
+    def get_data(self, run_id, depth, label, conv=None):
         data_path = f'{run_id}/data/v1'
         conv_path = f'{run_id}/conv/{conv}'
 
@@ -100,7 +94,6 @@ class ODESolver:
             t_max, dt = file.load_metadata(run_id, ('t_max', 'dt'))
             n_max = int(t_max / dt)
             idx = self.labels.index(label)
-            line = None
 
             for n in range(0, n_max + 1, depth):
                 buf_len = min(depth, n_max - n + 1)
@@ -109,10 +102,21 @@ class ODESolver:
                 data = [file.load(data_path, (slice(n, n + buf_len), idx))] if not conv else \
                         file.load(conv_path, (slice(None), slice(n, n + buf_len), idx)) * [[1], [16]]
 
-                if line is None:
-                    line = ax.plot(t, np.transpose(data), **kwargs)
-                else:
-                    for ln, sub_data in zip(line, data):
-                        ax.plot(t, sub_data, color=ln.get_color(), linestyle=ln.get_linestyle(), label=None)
+                yield t, data
+
+    def plot(self, run_id, depth, label, ax=None, **kwargs):
+        if ax is None: fig, ax = plt.subplots()
+        ax.grid(True)
+        line = None
+
+        conv = kwargs.pop('conv', None)
+        if conv: ax.set_yscale('log')
+
+        for t, data in self.get_data(run_id, depth, label, conv):
+            if line is None:
+                line = ax.plot(t, np.transpose(data), **kwargs)
+            else:
+                for ln, sub_data in zip(line, data):
+                    ax.plot(t, sub_data, color=ln.get_color(), linestyle=ln.get_linestyle(), label=None)
 
         return ax
