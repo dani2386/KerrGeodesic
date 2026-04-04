@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from src.kerr_solver import KerrSolver
+from src.mcmc import run_mcm
 
 
 # Global Simulation Constants
@@ -38,6 +39,8 @@ def main():
     solver.plot_gw(run_id, depth)
 
     plt.show()
+
+    run_mcm(solver, run_id, depth)
 
 
 if __name__ == '__main__':
